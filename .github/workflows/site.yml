@@ -1,0 +1,40 @@
+name: Petronect Dashboard
+
+on:
+  schedule:
+    - cron: '0 10 * * *'   # 07:00 (Brasília), todo dia
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: petronect-site
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Gerar dashboard
+        shell: pwsh
+        env:
+          EMAIL_CONTATO: ${{ vars.EMAIL_CONTATO }}
+          MARCA: ${{ vars.MARCA }}
+        run: ./scripts/dashboard.ps1
+
+      - name: Publicar
+        run: |
+          git config user.name  "petronect-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          if git diff --staged --quiet; then
+            echo "Sem mudanças."
+          else
+            git commit -m "site: atualiza dashboard ($(date +%F))"
+            git pull --rebase --autostash origin ${{ github.ref_name }} || true
+            git push origin HEAD:${{ github.ref_name }}
+          fi
